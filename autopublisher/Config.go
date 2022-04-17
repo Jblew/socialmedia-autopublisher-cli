@@ -8,9 +8,14 @@ import (
 
 // Config
 type Config struct {
-	BibPath     string `yaml:"bibPath"`
-	OutlineFile string `yaml:"outlinePath"`
-	OutFile     string `yaml:"outPath"`
+	Source struct {
+		Name string `yaml:"source" json:"source"`
+	}
+}
+
+type SourceConfig struct {
+	Name   string      `yaml:"name" json:"name"`
+	Config interface{} `yaml:"config" json:"config"`
 }
 
 func LoadConfigFromFile(configPath string) (Config, error) {

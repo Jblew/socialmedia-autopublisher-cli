@@ -12,6 +12,16 @@ type Article struct {
 	Fields map[string]interface{}
 }
 
+type Plugin interface {
+	GetName() string
+	GetEmptyConfig() interface{}
+}
+
+type PluginSource interface {
+	Plugin
+	NewSource(config interface{}) (Source, error)
+}
+
 type Source interface {
-	FetchNewsfeed() Newsfeed
+	FetchNewsfeed() (Newsfeed, error)
 }
