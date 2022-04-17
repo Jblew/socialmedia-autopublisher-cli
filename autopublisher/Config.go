@@ -1,4 +1,4 @@
-package app
+package autopublisher
 
 import (
 	"io/ioutil"

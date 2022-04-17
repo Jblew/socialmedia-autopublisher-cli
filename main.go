@@ -4,7 +4,7 @@ import (
 	"log"
 	"os"
 
-	"github.com/Jblew/socialmedia-autopublisher-cli/app"
+	"github.com/Jblew/socialmedia-autopublisher-cli/autopublisher"
 	"github.com/urfave/cli/v2"
 )
 
@@ -16,11 +16,11 @@ func main() {
 		Usage: "publishes to a socialmedia feed",
 		Action: func(c *cli.Context) error {
 			configFile := c.Args().Get(0)
-			config, err := app.LoadConfigFromFile(configFile)
+			config, err := autopublisher.LoadConfigFromFile(configFile)
 			if err != nil {
 				return err
 			}
-			autopublisherApp := app.NewApp(config)
+			autopublisherApp := autopublisher.NewApp(config)
 			return autopublisherApp.Publish()
 		},
 	}

@@ -1,4 +1,4 @@
-package app
+package autopublisher
 
 type App struct {
 	config Config
