@@ -6,7 +6,7 @@ CLI tool for automatic fetching articles and publishing to social media feeds.
 flowchart LR
   Source --> Cli --> Socialmedia
   Source["<u>Source:</u><br />- Wordpress (development)"]
-  Cli[Autoposter CLI]
+  Cli["<u>Autoposter CLI</u><br />- Templating (development)<br />- Image generation (planned)"]
   Socialmedia["<u>Social media</u><br />- Twitter (development)<br \>- Instagram (planned)"]
 
 ```
