@@ -1,9 +1,11 @@
 package autopublisher
 
 type App struct {
-	config Config
+	plugins []Plugin
+	config  Config
+	source  *Source
 }
 
-func NewApp(config Config) App {
-	return App{config: config}
+func NewApp(plugins []Plugin) App {
+	return App{plugins: plugins}
 }

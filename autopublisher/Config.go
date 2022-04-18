@@ -18,7 +18,7 @@ type SourceConfig struct {
 	Config interface{} `yaml:"config" json:"config"`
 }
 
-func LoadConfigFromFile(configPath string) (Config, error) {
+func (app App) LoadConfigFromFile(configPath string) (Config, error) {
 	contents, err := ioutil.ReadFile(configPath)
 	if err != nil {
 		return Config{}, err
