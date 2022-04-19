@@ -13,13 +13,13 @@ describe("autopublisher.fetch", () => {
         contexts.forEach(context => expect((context.source.fetch as SinonSpy).callCount).to.be.eq(1))
     })
 
-    it.only("Saves per post state in the context directory", async () => {
+    it("Saves per post state in the context directory", async () => {
         const context = makeDummyContext();
         const ID = `post-${Math.random()}`;
         context.source = new StaticSource([{ ID, title: `Article ${ID}` }])
         const a = autopublisher(() => ({ contexts: [context], }))
         await a.fetch();
-        expect(fs.existsSync(`${context.dir}/${ID}.state.json`))
+        expect(fs.existsSync(`${context.dir}/${ID}.state.json`)).to.be.true
     })
 })
 
@@ -44,22 +44,27 @@ describe("autopublisher.publish", () => {
 })
 
 describe("autopublisher flow", () => {
-    it("Full autopublisher flow", async () => {
+    it.only("Full autopublisher flow", async () => {
         const context = makeDummyContext();
         const ID = `post-${Math.random()}`;
         context.source = new StaticSource([{ ID, title: `Article ${ID}` }])
         const getState = () => JSON.parse(fs.readFileSync(`${context.dir}/${ID}.state.json`, "utf-8"))
         const a = autopublisher(() => ({ contexts: [context], }))
         await a.fetch();
-        expect(getState().state.name).to.match(/^fetched/)
-        await a.prepare();
-        expect(getState().state.name).to.match(/^prepared/)
-        await a.publish()
-        expect(getState().state.name).to.match(/^published/)
+        expect(getState().value).to.deep.equal({ finished: 'fetched' })
+
+        const a2 = autopublisher(() => ({ contexts: [context], }))
+        await a2.prepare();
+        expect(getState().value).to.deep.equal({ finished: 'prepared' })
+
+        const a3 = autopublisher(() => ({ contexts: [context], }))
+        await a3.publish()
+        expect(getState().value).to.deep.equal({ finished: 'published' })
     })
 })
 
 function makeDummyContext(): ContextConfig<any, any> {
+    fs.mkdirSync('.testtemp', { recursive: true })
     const dir = fs.mkdtempSync(`.testtemp/socialmedia-autopublisher-test-${new Date().toISOString()}`);
     return {
         dir,

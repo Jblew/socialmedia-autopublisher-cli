@@ -1,8 +1,8 @@
 import { ContextConfig } from "@/Config";
 import { Article, Autopublisher } from "@/interfaces";
-import { assign, createMachine, DoneInvokeEvent, interpret, State } from "xstate";
+import { AnyInterpreter, assign, createMachine, DoneInvokeEvent, interpret, State } from "xstate";
 import * as fs from "fs"
-import { awaitManyMachinesDone } from "@/util";
+import { awaitManyMachinesDone, awaitManyMachinesState } from "@/util";
 
 export class AutopublisherXState implements Autopublisher {
     private interpreters: ReturnType<typeof this.interpretMachine>[];
@@ -13,19 +13,20 @@ export class AutopublisherXState implements Autopublisher {
     async fetch() {
         this.initialize();
         await this.fetchNewArticlesStartMachines();
-        await this.awaitAllMachines();
+        this.sendToAllMachines('FETCH');
+        await this.finalize();
     }
 
     async prepare() {
         this.initialize();
         this.sendToAllMachines('PREPARE');
-        await this.awaitAllMachines();
+        await this.finalize();
     }
 
     async publish() {
         this.initialize();
         this.sendToAllMachines('PUBLISH');
-        await this.awaitAllMachines();
+        await this.finalize();
     }
 
     private createMachine(article?: Article) {
@@ -40,33 +41,28 @@ export class AutopublisherXState implements Autopublisher {
             context,
             states: {
                 fetched: {
-                    on: {
-                        PREPARE: 'preparing'
-                    }
+                    on: { PREPARE: 'preparing', FETCH: 'finished.fetched' }
                 },
                 preparing: {
                     entry: 'clearError',
                     invoke: {
                         src: 'prepare',
-                        onDone: { target: 'prepared', actions: ['setPrepared'] },
+                        onDone: { target: 'finished.prepared', actions: ['setPrepared'] },
                         onError: { target: 'preparingError', actions: ['setError'] }
                     }
                 },
                 preparingError: {
                     entry: ['logError'],
-                    on: { always: 'fetched' }
+                    on: { always: 'finished.fetched' }
                 },
                 prepared: {
-                    on: {
-                        PUBLISH: 'publishing',
-                        always: { actions: ['save'], target: 'saved' }
-                    }
+                    on: { PUBLISH: 'publishing' }
                 },
                 publishing: {
                     entry: 'clearError',
                     invoke: {
                         src: 'publish',
-                        onDone: { target: 'published', actions: ['setPrepareResult'] },
+                        onDone: { target: 'finished.published', actions: ['setPrepareResult'] },
                         onError: { target: 'publishingError', actions: ['setError'] }
                     }
                 },
@@ -75,8 +71,16 @@ export class AutopublisherXState implements Autopublisher {
                     on: { always: 'prepared' }
                 },
                 published: {},
-                saved: {
-                    type: 'final'
+                finished: {
+                    states: {
+                        fetched: {
+                            on: { REHYDRATE: 'fetched' }
+                        },
+                        prepared: {
+                            on: { REHYDRATE: 'prepared' }
+                        },
+                        published: { type: 'final' }
+                    }
                 }
             }
         }, {
@@ -118,17 +122,12 @@ export class AutopublisherXState implements Autopublisher {
             if (!this.existsMachineForArticle(article)) {
                 this.interpreters.push(this.startNewMachineForArticle(article))
             }
-            const interpreter = this.interpretMachine(this.createMachine(article))
-            interpreter.start()
-            interpreter.send('')
-            this.interpreters.push(interpreter)
         }
     }
 
     private startNewMachineForArticle(article: Article) {
         const interpreter = this.interpretMachine(this.createMachine(article))
         interpreter.start()
-        interpreter.send('FETCH')
         return interpreter
     }
 
@@ -136,14 +135,34 @@ export class AutopublisherXState implements Autopublisher {
         this.interpreters.forEach(interpreter => interpreter.send(event))
     }
 
-    private async awaitAllMachines() {
-        await awaitManyMachinesDone(this.interpreters)
+    private async finalize() {
+        await this.awaitAllMachinesFinished()
+        this.saveInterpreters();
+    }
+
+    private async awaitAllMachinesFinished() {
+        await awaitManyMachinesState(this.interpreters, state => state.matches('finished'))
+    }
+
+    private saveInterpreters() {
+        for (const interpreter of this.interpreters) {
+            const hydrated = this.hydrateInterpreter(interpreter)
+            const path = `${this.config.dir}/${interpreter.state.context.article?.ID}.state.json`
+            fs.writeFileSync(path, JSON.stringify(hydrated, undefined, 2))
+        }
     }
 
     private rehydrateMachine(stateDehydrated: any) {
         const state: any = State.create(stateDehydrated);
         const interpreter = this.interpretMachine(this.createMachine())
-        return interpreter.start(state)
+        interpreter.start(state)
+        interpreter.send('REHYDRATE')
+        return interpreter
+    }
+
+    private hydrateInterpreter(interpreter: AnyInterpreter) {
+        interpreter.stop()
+        return interpreter.state
     }
 
     private existsMachineForArticle(article: Article) {
