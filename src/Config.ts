@@ -1,12 +1,13 @@
-import { AutopublisherSource, AutopublisherTarget } from "./interfaces";
+import { Article, AutopublisherSource, AutopublisherTarget } from "./interfaces";
 
 export interface Config {
-    contexts: ContextConfig<any, any>[]
+    contexts: ContextConfig<any, any, any>[]
 }
 
-export interface ContextConfig<S, T> {
+export interface ContextConfig<S extends Article, P, T> {
     dir: string,
     source: AutopublisherSource<S>,
+    prepare: (s: S) => Promise<P>,
     transformation: (s: S) => T,
     target: AutopublisherTarget<T>,
 }

@@ -4,10 +4,15 @@ export interface Autopublisher {
     publish(): Promise<void>
 }
 
-export interface AutopublisherSource<T> {
-
+export interface Article {
+    ID: string,
+    title: string,
 }
 
-export interface AutopublisherTarget<T> {
+export interface AutopublisherSource<T extends Article> {
+    fetch(): Promise<T[]>
+}
 
+export interface AutopublisherTarget<T, RESPONSE = any> {
+    publish(t: T): Promise<RESPONSE>
 }
