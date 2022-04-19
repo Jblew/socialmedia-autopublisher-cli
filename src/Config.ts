@@ -4,7 +4,7 @@ export interface Config {
     contexts: ContextConfig<any, any, any>[]
 }
 
-export interface ContextConfig<S extends Article, P, T> {
+export interface ContextConfig<S extends Article = any, P = any, T = any> {
     dir: string,
     source: AutopublisherSource<S>,
     prepare: (s: S) => Promise<P>,
