@@ -1,7 +1,5 @@
 import siejmy from "./siejmy";
 
-export default autopublisher(() => {
-    return [
-        ...siejmy()
-    ]
-})
+export default autopublisher(() => [
+    ...siejmy()
+])
