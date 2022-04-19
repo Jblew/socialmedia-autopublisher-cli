@@ -1,0 +1,23 @@
+{
+  "name": "socialmedia-autopublisher",
+  "version": "1.0.0",
+  "description": "CI tool for automatic social media publishing",
+  "main": "dist/index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Jblew/socialmedia-autopublisher-cli.git"
+  },
+  "author": "Jędrzej Bogumił Lewandowski <jedrzejblew@gmail.com> (https://jblewandowski.com/)",
+  "license": "GPL-3.0",
+  "bugs": {
+    "url": "https://github.com/Jblew/socialmedia-autopublisher-cli/issues"
+  },
+  "homepage": "https://github.com/Jblew/socialmedia-autopublisher-cli#readme",
+  "devDependencies": {
+    "@types/node": "^17.0.25",
+    "typescript": "^4.6.3"
+  }
+}
