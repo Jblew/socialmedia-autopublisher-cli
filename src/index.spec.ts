@@ -13,7 +13,7 @@ describe("autopublisher.fetch", () => {
         contexts.forEach(context => expect((context.source.fetch as SinonSpy).callCount).to.be.eq(1))
     })
 
-    it("Saves per post state in the context directory", async () => {
+    it.only("Saves per post state in the context directory", async () => {
         const context = makeDummyContext();
         const ID = `post-${Math.random()}`;
         context.source = new StaticSource([{ ID, title: `Article ${ID}` }])
@@ -59,13 +59,12 @@ describe("autopublisher flow", () => {
     })
 })
 
-function makeDummyContext(): ContextConfig<any, any, any> {
+function makeDummyContext(): ContextConfig<any, any> {
     const dir = fs.mkdtempSync(`.testtemp/socialmedia-autopublisher-test-${new Date().toISOString()}`);
     return {
         dir,
         source: new EmptySource(),
-        prepare: async () => { },
-        transformation: (s) => ({ ...s }),
+        prepare: async (s) => ({ ...s }),
         target: new EmptyTarget()
     }
 }

@@ -1,7 +1,8 @@
 import { ContextConfig } from "@/Config";
 import { Article, Autopublisher } from "@/interfaces";
-import { createMachine, interpret, State } from "xstate";
+import { assign, createMachine, DoneInvokeEvent, interpret, State } from "xstate";
 import * as fs from "fs"
+import { awaitManyMachinesDone } from "@/util";
 
 export class AutopublisherXState implements Autopublisher {
     private interpreters: ReturnType<typeof this.interpretMachine>[];
@@ -10,24 +11,95 @@ export class AutopublisherXState implements Autopublisher {
     }
 
     async fetch() {
-        await this.initialize();
+        this.initialize();
         await this.fetchNewArticlesStartMachines();
         await this.awaitAllMachines();
     }
 
     async prepare() {
-        await this.initialize();
+        this.initialize();
         this.sendToAllMachines('PREPARE');
         await this.awaitAllMachines();
     }
 
     async publish() {
-        await this.initialize();
+        this.initialize();
         this.sendToAllMachines('PUBLISH');
         await this.awaitAllMachines();
     }
 
-    private async initialize() {
+    private createMachine(article?: Article) {
+        const context = {
+            article: article || null,
+            prepared: null as any,
+            publishResult: {} as any,
+            error: null as any,
+        }
+        return createMachine({
+            initial: 'fetched',
+            context,
+            states: {
+                fetched: {
+                    on: {
+                        PREPARE: 'preparing'
+                    }
+                },
+                preparing: {
+                    entry: 'clearError',
+                    invoke: {
+                        src: 'prepare',
+                        onDone: { target: 'prepared', actions: ['setPrepared'] },
+                        onError: { target: 'preparingError', actions: ['setError'] }
+                    }
+                },
+                preparingError: {
+                    entry: ['logError'],
+                    on: { always: 'fetched' }
+                },
+                prepared: {
+                    on: {
+                        PUBLISH: 'publishing',
+                        always: { actions: ['save'], target: 'saved' }
+                    }
+                },
+                publishing: {
+                    entry: 'clearError',
+                    invoke: {
+                        src: 'publish',
+                        onDone: { target: 'published', actions: ['setPrepareResult'] },
+                        onError: { target: 'publishingError', actions: ['setError'] }
+                    }
+                },
+                publishingError: {
+                    entry: ['logError'],
+                    on: { always: 'prepared' }
+                },
+                published: {},
+                saved: {
+                    type: 'final'
+                }
+            }
+        }, {
+            actions: {
+                logError: (_, evt: DoneInvokeEvent<any>) => console.error(evt.data),
+                clearError: assign<typeof context>({ error: () => null }),
+                setError: assign<typeof context>({ error: (_: any, evt: DoneInvokeEvent<any>) => evt.data }),
+                setPrepared: assign<typeof context>({ prepared: (_: any, evt: DoneInvokeEvent<any>) => evt.data }),
+                setPublishResult: assign<typeof context>({ publishResult: (_: any, evt: DoneInvokeEvent<any>) => evt.data }),
+            }
+        })
+    }
+
+    private interpretMachine(machine: ReturnType<typeof this.createMachine>) {
+        return interpret(machine.withConfig({
+            services: {
+                prepare: (ctx) => this.config.prepare(ctx.article),
+                publish: (ctx) => this.config.target.publish(ctx.prepared),
+            }
+        })).onTransition((s) => console.log('TRANSITION', s.value)).onEvent((evt) => console.log('   EVENT', evt.type))
+    }
+
+    private initialize() {
         this.interpreters = this.startAllExistingMachines()
     }
 
@@ -43,26 +115,21 @@ export class AutopublisherXState implements Autopublisher {
     private async fetchNewArticlesStartMachines() {
         const articles = await this.config.source.fetch();
         for (const article of articles) {
-            if (this.existsMachineForArticle(article)) {
-                continue;
+            if (!this.existsMachineForArticle(article)) {
+                this.interpreters.push(this.startNewMachineForArticle(article))
             }
             const interpreter = this.interpretMachine(this.createMachine(article))
             interpreter.start()
+            interpreter.send('')
             this.interpreters.push(interpreter)
         }
     }
 
-    private createMachine(article?: Article) {
-        return createMachine({
-            initial: 'unfetched',
-            context: {
-                article: article || undefined
-            }
-        })
-    }
-
-    private interpretMachine(machine: ReturnType<typeof this.createMachine>) {
-        return interpret(machine)
+    private startNewMachineForArticle(article: Article) {
+        const interpreter = this.interpretMachine(this.createMachine(article))
+        interpreter.start()
+        interpreter.send('FETCH')
+        return interpreter
     }
 
     private sendToAllMachines(event: string) {
@@ -70,7 +137,7 @@ export class AutopublisherXState implements Autopublisher {
     }
 
     private async awaitAllMachines() {
-        await Promise.all(this.interpreters.map(interpreter => async () => await interpreter.awaitFinalState()))
+        await awaitManyMachinesDone(this.interpreters)
     }
 
     private rehydrateMachine(stateDehydrated: any) {
