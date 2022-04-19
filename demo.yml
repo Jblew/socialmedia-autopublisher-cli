@@ -1,4 +1,0 @@
-source:
-  name: wordpress
-  config:
-    wpJsonURL: "https://siejmy.pl/wp-json/"
