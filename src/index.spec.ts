@@ -19,7 +19,7 @@ describe("autopublisher.fetch", () => {
         context.source = new StaticSource([{ ID, title: `Article ${ID}` }])
         const a = autopublisher(() => ({ contexts: [context], }))
         await a.fetch();
-        expect(fs.existsSync(`${context.dir}/${ID}.json`))
+        expect(fs.existsSync(`${context.dir}/${ID}.state.json`))
     })
 })
 
@@ -48,7 +48,7 @@ describe("autopublisher flow", () => {
         const context = makeDummyContext();
         const ID = `post-${Math.random()}`;
         context.source = new StaticSource([{ ID, title: `Article ${ID}` }])
-        const getState = () => JSON.parse(fs.readFileSync(`${context.dir}/${ID}.json`, "utf-8"))
+        const getState = () => JSON.parse(fs.readFileSync(`${context.dir}/${ID}.state.json`, "utf-8"))
         const a = autopublisher(() => ({ contexts: [context], }))
         await a.fetch();
         expect(getState().state.name).to.match(/^fetched/)
